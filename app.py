@@ -7,7 +7,7 @@ import streamlit as st
 
 
 # =========================================================
-# 1. ตั้งค่าหน้าเว็บไซต์
+# 1. ตั้งค่าหน้าเว็บไซต์ (Modern Minimal Pink Theme)
 # =========================================================
 
 st.set_page_config(
@@ -712,7 +712,7 @@ for chapter, topics in LESSONS.items():
     chapter_routes[chapter] = chapter
 
     for title, description, example in topics:
-        label = f"　↳ {title}"
+        label = f" ↳ {title}"
         lesson_routes[label] = (
             chapter,
             title,
@@ -742,7 +742,7 @@ for chapter, topics in LESSONS.items():
     lesson_options.append(chapter)
 
     for title, description, example in topics:
-        lesson_options.append(f"　↳ {title}")
+        lesson_options.append(f" ↳ {title}")
 
 selected_lesson = st.sidebar.radio(
     "เลือกบทเรียนหรือหัวข้อย่อย",
@@ -1275,43 +1275,59 @@ elif selected_main == GAME:
 elif selected_main == QUIZ:
     st.title("📊 แบบทดสอบตรรกศาสตร์")
 
-    st.write("ตอบคำถามให้ครบ แล้วกดส่งแบบทดสอบเพื่อดูคะแนน")
+    if "quiz_scores" not in st.session_state:
+        st.session_state.quiz_scores = {}
 
-    answers = []
+    st.subheader("บทเรียนที่เปิดให้ทดสอบ")
 
-    for i, question in enumerate(QUESTIONS):
-        answer = st.radio(
-            f"ข้อ {i + 1}. {question['question']}",
-            question["options"],
-            index=None,
-            key=f"quiz_{i}",
-        )
+    for i, chapter in enumerate(LESSONS.keys()):
+        score = st.session_state.quiz_scores.get(chapter, None)
+        status = " (ทำแล้ว)" if score is not None else ""
 
-        answers.append(answer)
+        if st.button(chapter + status, key=f"quiz_chapter_{i}"):
+            st.session_state.selected_chapter_quiz = chapter
+            st.rerun()
 
-    if st.button("ส่งแบบทดสอบ"):
-        if any(answer is None for answer in answers):
-            st.warning("กรุณาตอบให้ครบทุกข้อ")
-        else:
-            score = sum(
-                answer == question["answer"]
-                for answer, question in zip(answers, QUESTIONS)
+    if "selected_chapter_quiz" in st.session_state:
+        chapter = st.session_state.selected_chapter_quiz
+
+        st.divider()
+        st.header("📊 แบบทดสอบ: " + chapter)
+
+        topics = LESSONS[chapter]
+
+        quiz_form = st.form(key="quiz_form")
+        user_answers = {}
+
+        for i, (title, description, example) in enumerate(topics):
+            question = f"{title}: {description} " f"(ตัวอย่าง: {example})"
+            quiz_form.markdown(f"**ข้อ {i+1}.** {question}")
+
+            options = ["T (จริง)", "F (เท็จ)"]
+            user_answers[i] = quiz_form.radio(
+                "คำตอบของคุณ",
+                options,
+                key=f"quiz_{chapter}_{i}",
+                index=None,
+                label_visibility="collapsed",
             )
 
-            st.metric(
-                "คะแนน",
-                f"{score}/{len(QUESTIONS)}",
+        submit_button = quiz_form.form_submit_button("ส่งคำตอบ")
+
+        if submit_button:
+            score = 0
+            for i in range(len(topics)):
+                if user_answers[i] == "T (จริง)":
+                    score += 1
+
+            st.session_state.quiz_scores[chapter] = score
+
+            st.success(
+                f"คุณทำได้ทั้งหมด {score} เต็ม {len(topics)} คะแนน"
             )
 
-            st.progress(score / len(QUESTIONS))
-
-            with st.expander("ดูเฉลย"):
-                for i, question in enumerate(QUESTIONS):
-                    st.write(
-                        f"ข้อ {i + 1}: "
-                        f"{question['answer']} — "
-                        f"{question['explanation']}"
-                    )
+            del st.session_state.selected_chapter_quiz
+            st.rerun()
 
 
 # =========================================================
@@ -1319,31 +1335,44 @@ elif selected_main == QUIZ:
 # =========================================================
 
 elif selected_main == ABOUT:
-    st.title("ℹ️ เกี่ยวกับเว็บไซต์")
+    st.title("ℹ️ เกี่ยวกับ Math Logic")
 
-    st.markdown("""
-    **Math Logic Learning & Solver**
+    col1, col2 = st.columns([1, 2])
 
-    เว็บไซต์สื่อการเรียนรู้ตรรกศาสตร์ทางคณิตศาสตร์
-    สำหรับทบทวนเนื้อหา ฝึกสร้างตารางค่าความจริง
-    ตรวจสอบสูตร และฝึกทำแบบฝึกหัด
-
-    ### ความสามารถ
-    - บทเรียนแยกตามบทและหัวข้อย่อย
-    - เครื่องคำนวณค่าความจริง
-    - ตารางค่าความจริง
-    - ตรวจประเภทสูตร
-    - ตรวจสอบสมมูลทางตรรกศาสตร์
-    - ตรวจสอบการอ้างเหตุผล
-    - รวมสูตร แบบฝึกหัด เกม และแบบทดสอบ
-
-    ### ข้อจำกัด
-    - เครื่องมือคำนวณนี้รองรับตรรกศาสตร์ประพจน์
-    - ยังไม่คำนวณตัวบ่งปริมาณ ∀ และ ∃ โดยตรง
-    - แผนภาพต้นไม้เป็นตัวอย่างประกอบการเรียนรู้
-    - เว็บไซต์ยังไม่มีระบบสมาชิกหรือการบันทึกคะแนนถาวร
-    """)
-
-    st.info(
-        "จัดทำเพื่อใช้ประกอบการเรียนรู้ตรรกศาสตร์ทางคณิตศาสตร์"
+    col1.markdown("### เป้าหมาย")
+    col1.write(
+        "เพื่อให้ทุกคนสามารถเรียนรู้ตรรกศาสตร์ "
+        "ได้อย่างเข้าใจ สนุก และสามารถ "
+        "นำความรู้ไปประยุกต์ใช้ได้"
     )
+
+    col1.markdown("### ผู้พัฒนา")
+    col1.write(
+        "พัฒนาโดยใช้ภาษางาน Python และไลบรารี Streamlit "
+        "โดยอ้างอิงเนื้อหาจากตำราเรียนและแหล่งข้อมูล "
+        "ทางคณิตศาสตร์ที่เชื่อถือได้"
+    )
+
+    col2.markdown("### การประยุกต์ใช้ตรรกศาสตร์")
+    col2.write(
+        "ตรรกศาสตร์เป็นพื้นฐานของศาสตร์หลายด้าน ได้แก่:"
+    )
+
+    applications = {
+        "คณิตศาสตร์": "การพิสูจน์ทฤษฎีบท",
+        "วิทยาการคอมพิวเตอร์": "การเขียนโปรแกรม ปัญญาประดิษฐ์",
+        "ปรัชญา": "การวิเคราะห์การให้เหตุผล",
+        "กฎหมาย": "การตีความข้อกฎหมาย",
+        "การตัดสินใจ": "การประเมินสถานการณ์",
+    }
+
+    for app, desc in applications.items():
+        st.write(f"• **{app}**: {desc}")
+
+    st.divider()
+
+    st.markdown("## คำชี้แจงด้านลิขสิทธิ์")
+    st.write(
+        "เนื้อหาและตัวอย่างในเว็บไซต์นี้มีวัตถุประสงค์เพื่อการศึกษาเท่านั้น"
+    )
+    st.caption("สงวนลิขสิทธิ์ © 2024 Math Logic Project")
